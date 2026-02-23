@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Summer 2026 Planner</title>
+  <title>Summer 2026 Weekends</title>
 
   <style>
     body {
@@ -15,7 +15,6 @@
 
     h1 {
       color: #6d6875;
-      margin-bottom: 5px;
     }
 
     .subtitle {
@@ -60,6 +59,7 @@
       border-radius: 10px;
       font-size: 14px;
       background: #f8edeb;
+      position: relative;
     }
 
     .header {
@@ -80,6 +80,27 @@
       outline: 3px solid #cdb4db;
     }
 
+    /* 🌸 Tooltip */
+    .tooltip {
+      position: absolute;
+      bottom: 110%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #ffffff;
+      border: 1px solid #ffc8dd;
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 12px;
+      box-shadow: 0px 4px 12px rgba(0,0,0,0.1);
+      white-space: nowrap;
+      display: none;
+      z-index: 10;
+    }
+
+    .day:hover .tooltip {
+      display: block;
+    }
+
     .legend {
       margin-top: 20px;
       color: #6d6875;
@@ -90,8 +111,7 @@
 
 <body>
 
-  <h1>Summer 2026 Weekend Planner 🌸</h1>
-  <div class="subtitle">Darker pink = more friends are free</div>
+  <h1>Summer 2026 Weekend Cabin Trip</h1>
 
   <input id="name" placeholder="Your name">
   <button onclick="submitAvailability()">Save Availability</button>
@@ -99,7 +119,7 @@
   <div id="calendars"></div>
 
   <div class="legend">
-    💗 Light = few available &nbsp;&nbsp; 💕 Dark = everyone available
+    Hover over a weekend to see who's free 
   </div>
 
   <script type="module">
@@ -127,6 +147,7 @@
     const container = document.getElementById("calendars");
     const selectedDates = new Set();
     let availabilityCounts = {};
+    let availabilityNames = {};
     let totalUsers = 0;
 
     const daysOfWeek = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -157,30 +178,32 @@
 
       for (let d = 1; d <= lastDay.getDate(); d++) {
         const date = new Date(year, month, d);
-        const dayDiv = document.createElement("div");
-        dayDiv.className = "day";
-        dayDiv.innerText = d;
+        const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+        if (!isWeekend) continue;
+
+        if (limitFirstWeekend && d > 7) continue;
 
         const dateKey = date.toISOString().split("T")[0];
+
+        const dayDiv = document.createElement("div");
+        dayDiv.className = "day weekend";
+        dayDiv.innerText = d;
         dayDiv.dataset.date = dateKey;
 
-        const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+        const tooltip = document.createElement("div");
+        tooltip.className = "tooltip";
+        tooltip.innerText = "No one yet 💭";
+        dayDiv.appendChild(tooltip);
 
-        if (isWeekend) {
-          if (limitFirstWeekend && d > 7) continue;
-
-          dayDiv.classList.add("weekend");
-
-          dayDiv.onclick = () => {
-            if (selectedDates.has(dateKey)) {
-              selectedDates.delete(dateKey);
-              dayDiv.classList.remove("selected");
-            } else {
-              selectedDates.add(dateKey);
-              dayDiv.classList.add("selected");
-            }
-          };
-        }
+        dayDiv.onclick = () => {
+          if (selectedDates.has(dateKey)) {
+            selectedDates.delete(dateKey);
+            dayDiv.classList.remove("selected");
+          } else {
+            selectedDates.add(dateKey);
+            dayDiv.classList.add("selected");
+          }
+        };
 
         calendar.appendChild(dayDiv);
       }
@@ -207,25 +230,41 @@
 
     onSnapshot(collection(db, "responses"), snapshot => {
       availabilityCounts = {};
+      availabilityNames = {};
       totalUsers = snapshot.size;
 
       snapshot.forEach(doc => {
+        const name = doc.id;
         const data = doc.data();
+
         for (let date in data) {
           availabilityCounts[date] =
             (availabilityCounts[date] || 0) + 1;
+
+          if (!availabilityNames[date]) {
+            availabilityNames[date] = [];
+          }
+          availabilityNames[date].push(name);
         }
       });
 
       document.querySelectorAll(".weekend").forEach(day => {
         const dateKey = day.dataset.date;
         const count = availabilityCounts[dateKey] || 0;
+        const tooltip = day.querySelector(".tooltip");
 
         if (totalUsers > 0) {
           const intensity = count / totalUsers;
           const pink = Math.floor(255 - intensity * 120);
           day.style.backgroundColor =
             `rgb(255, ${pink}, ${pink})`;
+        }
+
+        if (availabilityNames[dateKey]) {
+          tooltip.innerText =
+            availabilityNames[dateKey].join(", ");
+        } else {
+          tooltip.innerText = "No one yet 💭";
         }
       });
     });
