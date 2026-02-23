@@ -178,33 +178,43 @@
 
       for (let d = 1; d <= lastDay.getDate(); d++) {
         const date = new Date(year, month, d);
-        const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-        if (!isWeekend) continue;
-
-        if (limitFirstWeekend && d > 7) continue;
-
         const dateKey = date.toISOString().split("T")[0];
-
+        const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+      
         const dayDiv = document.createElement("div");
-        dayDiv.className = "day weekend";
+        dayDiv.className = "day";
         dayDiv.innerText = d;
         dayDiv.dataset.date = dateKey;
-
-        const tooltip = document.createElement("div");
-        tooltip.className = "tooltip";
-        tooltip.innerText = "No one yet 💭";
-        dayDiv.appendChild(tooltip);
-
-        dayDiv.onclick = () => {
-          if (selectedDates.has(dateKey)) {
-            selectedDates.delete(dateKey);
-            dayDiv.classList.remove("selected");
-          } else {
-            selectedDates.add(dateKey);
-            dayDiv.classList.add("selected");
-          }
-        };
-
+      
+        // Only allow first weekend in September
+        if (limitFirstWeekend && month === 8 && d > 7) {
+          calendar.appendChild(dayDiv);
+          continue;
+        }
+      
+        if (isWeekend) {
+          dayDiv.classList.add("weekend");
+      
+          const tooltip = document.createElement("div");
+          tooltip.className = "tooltip";
+          tooltip.innerText = "No one yet 💭";
+          dayDiv.appendChild(tooltip);
+      
+          dayDiv.onclick = () => {
+            if (selectedDates.has(dateKey)) {
+              selectedDates.delete(dateKey);
+              dayDiv.classList.remove("selected");
+            } else {
+              selectedDates.add(dateKey);
+              dayDiv.classList.add("selected");
+            }
+          };
+        } else {
+          // Soft pastel weekday look
+          dayDiv.style.background = "#fdf2f5";
+          dayDiv.style.opacity = "0.6";
+        }
+      
         calendar.appendChild(dayDiv);
       }
     }
