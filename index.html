@@ -2,18 +2,105 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Weekend When2Meet</title>
+  <title>Summer 2026 Planner</title>
+
+  <style>
+    body {
+      font-family: "Segoe UI", sans-serif;
+      background: #fffafc;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+    }
+
+    h1 {
+      color: #6d6875;
+      margin-bottom: 5px;
+    }
+
+    .subtitle {
+      color: #b5838d;
+      margin-bottom: 20px;
+    }
+
+    input, button {
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #e5c1cd;
+      margin: 5px;
+      font-size: 14px;
+    }
+
+    button {
+      background-color: #ffc8dd;
+      cursor: pointer;
+      border: none;
+    }
+
+    button:hover {
+      background-color: #ffafcc;
+    }
+
+    .month-title {
+      margin-top: 40px;
+      font-weight: bold;
+      color: #6d6875;
+    }
+
+    .calendar {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+      max-width: 700px;
+      margin: 10px auto 30px auto;
+    }
+
+    .day {
+      padding: 14px;
+      border-radius: 10px;
+      font-size: 14px;
+      background: #f8edeb;
+    }
+
+    .header {
+      font-weight: bold;
+      background: #fae1dd;
+    }
+
+    .weekend {
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+
+    .weekend:hover {
+      transform: scale(1.05);
+    }
+
+    .selected {
+      outline: 3px solid #cdb4db;
+    }
+
+    .legend {
+      margin-top: 20px;
+      color: #6d6875;
+      font-size: 14px;
+    }
+  </style>
 </head>
 
-<body style="font-family: Arial; text-align:center;">
+<body>
 
-  <h1>Summer Weekend Planner ☀️</h1>
+  <h1>Summer 2026 Weekend Planner 🌸</h1>
+  <div class="subtitle">Darker pink = more friends are free</div>
 
-  <input id="name" placeholder="Your name" />
-  <div id="weekends" style="margin:20px;"></div>
-  <button onclick="submitAvailability()">Submit</button>
+  <input id="name" placeholder="Your name">
+  <button onclick="submitAvailability()">Save Availability</button>
 
-  <h3 id="status"></h3>
+  <div id="calendars"></div>
+
+  <div class="legend">
+    💗 Light = few available &nbsp;&nbsp; 💕 Dark = everyone available
+  </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -25,7 +112,6 @@
       collection 
     } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-    // 🔥 Your Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyC1GbW69l72zHIxtATUvy6lISVPmz6Pd8I",
       authDomain: "weekendwhen2meet.firebaseapp.com",
@@ -38,86 +124,112 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    const weekends = [
-    "May 1-3",
-    "May 8-10",
-    "May 15-17",
-    "May 22-24",
-    "May 29-31",
-    "June 5-7",
-    "June 12-14",
-    "June 19-21",
-    "June 26-28",
-    "July 3-5",
-    "July 10-12",
-    "July 17-19",
-    "July 24-26",
-    "July 31 - August 2",
-    "August 7-9",
-    "August 14-16",
-    "August 21-23",
-    "August 28-30",
-    "Septemeber 4-6"
-    ];
+    const container = document.getElementById("calendars");
+    const selectedDates = new Set();
+    let availabilityCounts = {};
+    let totalUsers = 0;
 
-    document.addEventListener("DOMContentLoaded", () => {
-      const container = document.getElementById("weekends");
+    const daysOfWeek = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
-      weekends.forEach(date => {
+    function createMonth(month, year, monthName, limitFirstWeekend = false) {
+      const title = document.createElement("div");
+      title.className = "month-title";
+      title.innerText = monthName;
+      container.appendChild(title);
+
+      const calendar = document.createElement("div");
+      calendar.className = "calendar";
+      container.appendChild(calendar);
+
+      daysOfWeek.forEach(day => {
         const div = document.createElement("div");
-        div.innerHTML = `
-          <input type="checkbox" id="${date}">
-          <label for="${date}">${date}</label>
-        `;
-        container.appendChild(div);
+        div.className = "day header";
+        div.innerText = day;
+        calendar.appendChild(div);
       });
 
-      // 🔥 Live listener
-      onSnapshot(collection(db, "responses"), snapshot => {
-        let counts = {};
-        let totalUsers = snapshot.size;
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
 
-        snapshot.forEach(doc => {
-          let data = doc.data();
-          for (let date in data) {
-            if (data[date]) {
-              counts[date] = (counts[date] || 0) + 1;
+      for (let i = 0; i < firstDay.getDay(); i++) {
+        calendar.appendChild(document.createElement("div"));
+      }
+
+      for (let d = 1; d <= lastDay.getDate(); d++) {
+        const date = new Date(year, month, d);
+        const dayDiv = document.createElement("div");
+        dayDiv.className = "day";
+        dayDiv.innerText = d;
+
+        const dateKey = date.toISOString().split("T")[0];
+        dayDiv.dataset.date = dateKey;
+
+        const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+
+        if (isWeekend) {
+          if (limitFirstWeekend && d > 7) continue;
+
+          dayDiv.classList.add("weekend");
+
+          dayDiv.onclick = () => {
+            if (selectedDates.has(dateKey)) {
+              selectedDates.delete(dateKey);
+              dayDiv.classList.remove("selected");
+            } else {
+              selectedDates.add(dateKey);
+              dayDiv.classList.add("selected");
             }
-          }
-        });
-
-        weekends.forEach(date => {
-          const label = document.querySelector(`label[for='${date}']`);
-          if (!label) return;
-
-          if (counts[date] === totalUsers && totalUsers > 0) {
-            label.style.color = "green";
-            label.style.fontWeight = "bold";
-          } else {
-            label.style.color = "black";
-            label.style.fontWeight = "normal";
-          }
-        });
-
-        if (totalUsers > 0) {
-          document.getElementById("status").innerText =
-            `${totalUsers} friend(s) submitted`;
+          };
         }
-      });
-    });
+
+        calendar.appendChild(dayDiv);
+      }
+    }
+
+    createMonth(4, 2026, "May 2026");
+    createMonth(5, 2026, "June 2026");
+    createMonth(6, 2026, "July 2026");
+    createMonth(7, 2026, "August 2026");
+    createMonth(8, 2026, "September 2026 (First Weekend Only)", true);
 
     window.submitAvailability = async function() {
       const name = document.getElementById("name").value.trim();
       if (!name) return alert("Enter your name!");
 
-      let availability = {};
-      weekends.forEach(date => {
-        availability[date] = document.getElementById(date).checked;
+      const availability = {};
+      selectedDates.forEach(date => {
+        availability[date] = true;
       });
 
       await setDoc(doc(db, "responses", name), availability);
-      alert("Availability saved!");
+      alert("Saved 💕");
     };
+
+    onSnapshot(collection(db, "responses"), snapshot => {
+      availabilityCounts = {};
+      totalUsers = snapshot.size;
+
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        for (let date in data) {
+          availabilityCounts[date] =
+            (availabilityCounts[date] || 0) + 1;
+        }
+      });
+
+      document.querySelectorAll(".weekend").forEach(day => {
+        const dateKey = day.dataset.date;
+        const count = availabilityCounts[dateKey] || 0;
+
+        if (totalUsers > 0) {
+          const intensity = count / totalUsers;
+          const pink = Math.floor(255 - intensity * 120);
+          day.style.backgroundColor =
+            `rgb(255, ${pink}, ${pink})`;
+        }
+      });
+    });
+
   </script>
 
 </body>
